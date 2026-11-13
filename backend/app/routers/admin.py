@@ -5,11 +5,12 @@ from fastapi import APIRouter, Depends
 from google.cloud.firestore_v1.base_query import FieldFilter
 from pydantic import BaseModel, Field
 
-from .. import bank, people
+from .. import bank, drafts, people
 from ..catalog import AREA_ORDER
 from ..db import clean, db
 from ..seed import loader
 from ..security import require
+from ..seed import families
 
 router = APIRouter(prefix="/api/admin", tags=["administrador"])
 admin = require("admin")
@@ -66,7 +67,12 @@ def items_stats(user: dict = Depends(admin)):
         slot = stats.setdefault(it["area"], {})
         key = f"{it['pool']}/{it.get('status')}"
         slot[key] = slot.get(key, 0) + 1
-    return {"total": len(bank.all_items()), "byArea": stats}
+    fams: dict = {}
+    for name, (area, _) in families.REGISTRY.items():
+        fams[area] = fams.get(area, 0) + 1
+    approved = bank.approved_families()
+    return {"total": len(bank.all_items()), "byArea": stats, "familiesByArea": fams,
+            "familiesApproved": {a: sum(1 for n in approved if families.REGISTRY[n][0] == a) for a in fams}}
 
 
 @router.post("/items/seed")
@@ -94,3 +100,9 @@ def research_export(user: dict = Depends(admin)):
         row.update({f"conteo_{k}": v for k, v in (p.get("counters") or {}).items()})
         rows.append(row)
     return clean({"rows": rows})
+
+
+@router.post("/items/draft/{area}")
+def draft_items(area: str, user: dict = Depends(admin)):
+    """Redacta borradores con el modelo de lenguaje para la competencia con menos preguntas del área."""
+    return drafts.create(area.upper())

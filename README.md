@@ -12,7 +12,8 @@ El nombre se cambia sin tocar código: variable `APP_NAME` en el servidor y `VIT
 |---|---|
 | `backend/` | Servidor en Python (FastAPI). Aquí vive toda la lógica: diagnóstico, plan, calificación, tutor, licencias, autorizaciones. |
 | `backend/app/engine/` | Los tres motores: `irt.py` (diagnóstico adaptativo, modelo 3PL), `bkt.py` (dominio por competencia), `planner.py` (plan semanal). |
-| `backend/app/seed/` | Banco de preguntas semilla (`bank_seed.py`) y familias de Matemáticas con números variables (`math_families.py`). |
+| `backend/app/seed/` | Banco de preguntas: las escritas a mano (`bank_*.py`) y las familias que generan variantes nuevas (`families*.py`, `math_families.py`). |
+| `backend/app/drafts.py` | Redacción de borradores con el modelo de lenguaje, para revisión docente. |
 | `frontend/` | La web (React + TypeScript), instalable en el celular y usable sin conexión. |
 | `firestore.rules` | Reglas de seguridad de la base de datos. |
 | `e2e/` | Recorrido automático en un navegador real por todos los roles. |
@@ -47,7 +48,7 @@ En Windows (PowerShell) las variables se definen así: `$env:FIRESTORE_EMULATOR_
 ### Pruebas
 
 ```bash
-cd backend && pytest                 # 26 pruebas: motores y flujo completo contra los emuladores
+cd backend && pytest                 # 32 pruebas: motores, banco, tutor y flujo completo contra los emuladores
 ./e2e/correr.sh carpeta_capturas     # recorrido en Chrome (requiere `pip install playwright`); usa la web compilada: npm run build && npx vite preview --port 5173
 ```
 
@@ -61,7 +62,30 @@ cd backend && pytest                 # 26 pruebas: motores y flujo completo cont
 
 **Plan semanal.** Toma las tres competencias más débiles (máximo dos de la misma área), arma una práctica por cada una, un repaso de semanas anteriores y un cuestionario de salida sin ayudas. Con 60 % o más en la salida, la semana siguiente cambia de foco; con menos, refuerza los mismos temas con otras preguntas.
 
-**Tutor.** Antes de responder solo orienta; después explica. Sin clave de Groq usa las pistas escritas para cada pregunta. Con clave, la respuesta del modelo pasa por un filtro que descarta cualquier texto que revele la opción correcta, y al modelo nunca se le envía nombre ni correo. En el cuestionario de salida y en el simulacro no hay tutor.
+**Tutor.** Antes de responder solo orienta; después explica. Sin clave de Groq usa las pistas escritas para cada pregunta. Con clave, la respuesta del modelo pasa por tres filtros antes de mostrarse: que no nombre la opción correcta, que no la diga con otras palabras y que no confirme ni niegue lo que el estudiante propone. Si falla alguno, se muestra la pista escrita. Al modelo nunca se le envía nombre ni correo. En el cuestionario de salida y en el simulacro no hay tutor.
+
+**Preguntas que no se repiten.** El plan nunca usa una pregunta ya vista mientras quede alguna nueva. Hay dos fuentes:
+
+- *Familias* (48): plantillas de Matemáticas, Ciencias e Inglés que producen una pregunta distinta cada vez, con la clave calculada. Cada variante lleva una firma de su contenido, así que dos variantes con el mismo texto cuentan como la misma pregunta y no se vuelven a entregar. En conjunto dan más de 6.900 preguntas distintas.
+- *Preguntas escritas a mano* (203): textos y casos originales con sus preguntas. Aquí el banco es finito.
+
+Si la misma competencia fuera foco todas las semanas (el peor caso, 6 preguntas nuevas por semana), esto es lo que dura cada una sin repetir:
+
+| Competencia | Semanas sin repetir |
+|---|---|
+| Matemáticas: interpretación, formulación | más de 104 |
+| Matemáticas: argumentación | 80 |
+| Naturales: uso del conocimiento | 89 |
+| Naturales: indagación | más de 104 |
+| Naturales: explicación de fenómenos | 8 |
+| Inglés: vocabulario y gramática | más de 104 |
+| Inglés: lectura | 4 |
+| Lectura Crítica (cada competencia) | 2 a 3 |
+| Sociales (cada competencia) | 2 |
+
+Lectura Crítica, Sociales y la lectura en Inglés dependen de textos: no se pueden generar con plantillas sin perder calidad. Su banco crece de dos maneras: escribiendo más en `backend/app/seed/` o con el botón "Redactar borradores con IA" del administrador, que pide al modelo un texto nuevo con cuatro preguntas y lo deja en la bandeja del docente.
+
+**Borradores con IA.** El modelo propone y una persona valida. Un borrador de origen IA nunca llega a un estudiante sin aprobación docente, ni siquiera con `ALLOW_UNREVIEWED_ITEMS=true`. En las pruebas el modelo cometió errores de hecho (por ejemplo, ubicó a un pueblo indígena en un municipio que no es el suyo): la revisión no es un trámite.
 
 **Sin conexión.** El plan de la semana queda guardado en el dispositivo. Las prácticas se pueden responder sin señal y se envían solas al volver la conexión. El diagnóstico, el tutor con IA y el simulacro sí necesitan conexión.
 
@@ -69,21 +93,22 @@ cd backend && pytest                 # 26 pruebas: motores y flujo completo cont
 
 ## Publicar (todo en planes gratuitos)
 
-1. **Firebase.** Crear un proyecto en plan Spark. Activar Authentication (correo y contraseña) y Firestore. En Authentication > Plantillas, poner el correo de restablecimiento en español.
+1. **Firebase.** El proyecto es `aprendersaber11`, en plan Spark. Activar Authentication (correo y contraseña) y Firestore. En Authentication > Plantillas, poner el correo de restablecimiento en español.
 2. **Cuenta de servicio.** Configuración del proyecto > Cuentas de servicio > Generar clave privada. Ese archivo no se sube a GitHub: su contenido va en la variable `FIREBASE_SERVICE_ACCOUNT_JSON` del servidor.
 3. **Servidor en Render.** New > Blueprint > este repositorio (usa `render.yaml`). Llenar las variables que describe `backend/.env.example`. En el plan gratuito el servidor se duerme tras un rato sin uso y la primera petición tarda cerca de un minuto en despertar.
-4. **Web en Firebase Hosting.** Copiar `frontend/.env.example` como `frontend/.env.production`, llenarlo, y luego `npx firebase login`, `npx firebase use --add` y `npm run desplegar:web` (publica la web y las reglas de Firestore).
+4. **Web en Firebase Hosting.** Copiar `frontend/.env.example` como `frontend/.env.production` y llenar `VITE_FIREBASE_API_KEY` y `VITE_FIREBASE_APP_ID` (Firebase > Configuración del proyecto > Tus apps > app web). Luego `npx firebase login` y `npm run desplegar:web`, que publica la web y las reglas de Firestore en el proyecto `aprendersaber11` (definido en `.firebaserc`). La web queda en https://aprendersaber11.web.app.
 5. **Primer administrador.** Poner el correo en `ADMIN_EMAILS`, crear ese usuario en Firebase > Authentication, y en la app usar "Activar mi cuenta u olvidé la contraseña". Al crear la contraseña desde el enlace, el correo queda verificado y la cuenta entra como administrador.
 6. **Banco.** Entrar como administrador y pulsar "Cargar o actualizar banco semilla". Con `ALLOW_UNREVIEWED_ITEMS=false` los estudiantes solo ven preguntas que un docente ya aprobó.
-7. **Tutor.** Crear una clave gratuita en GroqCloud, activar la retención cero de datos en su consola y ponerla en `GROQ_API_KEY`.
+7. **Tutor.** Poner la clave de GroqCloud en la variable `GROQ_API_KEY` del servidor (nunca en el código ni en GitHub) y activar la retención cero de datos en la consola de Groq. El modelo por defecto es `openai/gpt-oss-120b`. Al probar la clave en noviembre de 2026, el plan gratuito permitía 1.000 consultas al día y 8.000 tokens por minuto (unas 10 consultas por minuto); por eso cada estudiante tiene 10 consultas diarias al modelo y, pasado el límite, recibe las pistas escritas.
 
 ## Lo que falta antes de usarla con estudiantes reales
 
-- **Banco de preguntas.** Es la tarea más grande. Hay 103 preguntas (80 escritas a mano y 23 generadas por familias de Matemáticas), todas en estado borrador. Alcanza para probar, no para un grado completo: en Lectura, Sociales y Naturales hay apenas 14 preguntas de diagnóstico y práctica por área, así que desde la segunda semana se repiten. Para el piloto se necesitan del orden de 40 o más por competencia, revisadas por docentes. Se agregan en `backend/app/seed/bank_seed.py` y se cargan con el botón del administrador; las ya aprobadas no se sobrescriben.
+- **Banco de lectura.** Es la tarea más grande que queda. Lectura Crítica tiene 54 preguntas de práctica y diagnóstico, y Sociales 50: alcanzan para pocas semanas sin repetir (ver la tabla). Para un semestre completo hacen falta varios cientos más por área, y todas deben pasar por un docente.
+- **Revisión docente.** Todo el banco está en borrador: 203 preguntas escritas a mano y 96 ejemplos de las 48 familias. Aprobar un ejemplo aprueba su familia.
 - **Calibración.** La dificultad de cada pregunta es una estimación de quien la escribió. Los cortes de nivel usan los rangos de puntaje del ICFES, pero la escala de la app no está equiparada con la del examen: los niveles son orientativos hasta calibrar con respuestas reales (la colección `itemStats` ya las va acumulando).
 - **Texto de autorización.** Debe revisarlo un abogado (Ley 1581 de 2012 y Decreto 1377 de 2013) antes de enviarlo a las familias.
 - **Pagos.** No hay pasarela: el administrador activa cada licencia a mano después de recibir el pago.
-- **Lo que no se ha probado.** El despliegue real en Firebase, Render y Groq (falta crear las cuentas), el tutor con el modelo real (está probado con un modelo simulado), el envío de correos con Brevo y la imagen de Docker.
+- **Lo que no se ha probado.** El despliegue real en Firebase y Render, el envío de correos con Brevo y la imagen de Docker. El tutor y la redacción de borradores sí se probaron con el modelo real de Groq.
 - **Privacidad del cuestionario de salida.** Para funcionar sin conexión, el plan guardado en el dispositivo incluye las claves de sus preguntas. Un estudiante con conocimientos técnicos podría verlas. El simulacro general no tiene ese problema: sus claves nunca salen del servidor antes de entregar.
 - **Tablero docente.** Se calcula al abrirlo; con cientos de estudiantes conviene precalcular.
 

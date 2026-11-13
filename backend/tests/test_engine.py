@@ -3,7 +3,9 @@ import random
 from app import tutor
 from app.catalog import AREAS, level_for
 from app.engine import bkt, irt, planner
-from app.seed import bank_seed, math_families
+import pytest
+
+from app.seed import bank_seed
 from app.seed.loader import seed_items
 
 
@@ -78,18 +80,79 @@ def test_seed_bank_is_well_formed():
         assert set(it["options"]) == set("ABCD") and it["correct"] in it["options"], it["id"]
         assert len(set(it["options"].values())) == 4, it["id"]
         assert it["explanation"] and it["hints"], it["id"]
-        assert it["pool"] in ("diagnostico", "practica", "simulacro")
+        assert it["pool"] in ("diagnostico", "practica", "simulacro", "plantilla")
     for area, spec in AREAS.items():
         diag = [it for it in items if it["area"] == area and it["pool"] == "diagnostico"]
         assert len(diag) >= 8 and {it["competencia"] for it in diag} == set(spec["competencias"]), area
         assert any(it["pool"] == "simulacro" and it["area"] == area for it in items)
 
 
-def test_math_families_are_correct_and_reproducible():
-    a, b = math_families.generate(), math_families.generate()
-    assert a == b and len(a) >= 20
-    d = next(it for it in a if it["origin"] == "familia:descuento")
+def test_answer_key_letters_are_balanced():
+    """La clave no puede caer casi siempre en la misma letra."""
+    from collections import Counter
+    letters = Counter(it["correct"] for it in bank_seed.ITEMS)
+    assert max(letters.values()) / len(bank_seed.ITEMS) < 0.35, letters
+
+
+def test_every_family_gives_valid_reproducible_questions():
+    from app.seed import families
+    assert len(families.REGISTRY) >= 45
+    for name, (area, _) in families.REGISTRY.items():
+        for seed in range(60):
+            it = families.make(name, seed)
+            assert it, (name, seed)
+            assert it["area"] == area and it["competencia"] in AREAS[area]["competencias"], name
+            assert set(it["options"]) == set("ABCD") and len(set(it["options"].values())) == 4, (name, seed, it["options"])
+            assert it["correct"] in it["options"] and it["explanation"] and it["hints"], name
+            assert it == families.make(name, seed)
+            assert families.is_generated(it["id"]) and families.family_of(it["id"]) == name
+    d = families.make("descuento", 1)
     assert d["options"][d["correct"]].startswith("$")
+
+
+def test_fresh_variants_never_repeat_content_already_seen():
+    import random
+
+    from app.seed import families
+    rng, seen, texts = random.Random(5), set(), set()
+    for _ in range(40):  # cuarenta semanas pidiendo variantes de las mismas familias
+        batch = families.fresh(["regla_tres_inversa", "present_simple", "conclusion_de_tabla"], seen, 3, rng)
+        assert len(batch) == 9
+        for it in batch:
+            text = (it.get("context"), it["stem"], tuple(sorted(it["options"].values())))
+            assert it["id"] not in seen and text not in texts
+            texts.add(text)
+            seen.add(it["id"])
+    # Una familia pequeña se agota sin repetir: entrega menos, nunca una repetida.
+    small, got = set(), 0
+    for _ in range(30):
+        batch = families.fresh(["question_word"], small, 3, rng)
+        got += len(batch)
+        small.update(it["id"] for it in batch)
+    assert got == families.capacity("question_word") == 12
+
+
+def test_a_year_of_weekly_plans_does_not_repeat_questions():
+    """52 semanas de planes para un estudiante: ninguna pregunta aparece dos veces."""
+    import random
+
+    from app.engine.planner import build_plan
+    from app.seed import families
+    stored = [it for it in seed_items() if it["pool"] in ("practica", "diagnostico")]
+    mastery = {"MAT.formulacion": 0.2, "ING.gramatica": 0.25, "NAT.indagacion": 0.3}
+    thetas = {"MAT": 0.0, "ING": 0.0, "NAT": 0.0}
+    seen: set[str] = set()
+    rng = random.Random(1)
+    for week in range(1, 53):
+        items = stored + families.fresh(list(families.REGISTRY), seen, 3, rng)
+        plan = build_plan(week, mastery, thetas, items, seen, [], 4, 2, rng=rng)
+        ids = [it["id"] for s in plan["sessions"] for it in s["items"]]
+        assert plan["sessions"][-1]["type"] == "salida" and len(ids) >= 15, (week, len(ids))
+        assert len(ids) == len(set(ids)) and not set(ids) & seen, week
+        for s in plan["sessions"]:  # variedad dentro de cada sesión: la misma plantilla, máximo dos veces
+            fams = [it["id"].split(".")[1] for it in s["items"] if it["id"].startswith("G.")]
+            assert all(fams.count(f) <= 2 for f in fams), (week, fams)
+        seen.update(ids)
 
 
 def test_practice_and_simulacro_pools_do_not_overlap():
@@ -124,11 +187,24 @@ def test_plan_week2_adds_spaced_review():
     assert any(s["type"] == "repaso" for s in plan["sessions"])
 
 
-ITEM = next(it for it in bank_seed.ITEMS if it["id"] == "MAT-005")  # clave B: $68.000
+ITEM = next(it for it in bank_seed.ITEMS if it["id"] == "MAT-005")  # clave: $68.000
+KEY = ITEM["correct"]
+
+
+@pytest.fixture(autouse=True)
+def _reset_tutor_rate_limit():
+    tutor._calls.clear()  # el límite por minuto es global; cada prueba empieza con el contador en cero
+
+
+def test_tutor_rate_limit_falls_back_to_validated_hints(monkeypatch):
+    monkeypatch.setattr(tutor.settings, "tutor_rpm", 2)
+    sources = [tutor.ask(ITEM, False, None, "ayuda", call=lambda s, u: "Piensa en el porcentaje.")["source"] for _ in range(4)]
+    assert sources == ["modelo", "modelo", "validado", "validado"]
 
 
 def test_tutor_blocks_answer_before_attempt():
-    for leak in ("La respuesta correcta es la B.", "Es la B, porque 80.000 menos 12.000...", "Debes marcar $68.000", "la opción (b) es la indicada: la respuesta es esa"):
+    for leak in (f"La respuesta correcta es la {KEY}.", f"Es la {KEY}, porque 80.000 menos 12.000...", "Debes marcar $68.000", "Te debe dar $68\u202f000 al final.",
+                 f"la opción ({KEY.lower()}) es la indicada: la respuesta es esa"):
         out = tutor.ask(ITEM, answered=False, selected=None, question="dime la respuesta", call=lambda s, u, r=leak: r)
         assert out["source"] == "validado" and "68.000" not in out["reply"], leak
 
@@ -138,7 +214,7 @@ def test_tutor_allows_socratic_hint_and_full_explanation_after():
     out = tutor.ask(ITEM, False, None, "no entiendo", call=lambda s, u: hint)
     assert out == {"reply": hint, "source": "modelo"}
     seen = {}
-    after = tutor.ask(ITEM, True, "A", "por qué fallé", call=lambda s, u: seen.update(system=s, user=u) or "La correcta es la B: el descuento es 12.000.")
+    after = tutor.ask(ITEM, True, "A", "por qué fallé", call=lambda s, u: seen.update(system=s, user=u) or f"La correcta es la {KEY}: el descuento es 12.000.")
     assert after["source"] == "modelo" and "YA respondió" in seen["system"] and "Explicación validada" in seen["user"]
 
 
@@ -151,7 +227,7 @@ def test_tutor_sends_no_personal_data_and_survives_failures():
         raise RuntimeError("sin red")
 
     assert tutor.ask(ITEM, False, None, "ayuda", call=boom)["source"] == "validado"
-    assert tutor.stored_reply(ITEM, True, "B").startswith("¡Bien!")
+    assert tutor.stored_reply(ITEM, True, KEY).startswith("¡Bien!")
 
 
 def test_plan_always_has_exit_quiz_even_with_a_small_bank():
@@ -194,3 +270,43 @@ def test_admin_requires_verified_email_and_is_promoted_later(monkeypatch):
     monkeypatch.setattr(security.settings, "admin_emails", [])
     ref.data = None
     assert security.current_user("Bearer x")["role"] == "particular"  # sin lista, nadie es administrador
+
+
+def test_ai_drafts_are_validated_and_never_shown_unreviewed(monkeypatch):
+    import json
+
+    from app import bank, drafts
+    written = {}
+    fake_batch = type("B", (), {"set": lambda s, ref, data: written.__setitem__(ref, data), "commit": lambda s: None})()
+    fake_db = type("DB", (), {"batch": lambda s: fake_batch, "collection": lambda s, n: type("C", (), {"document": lambda s2, i: i})()})()
+    monkeypatch.setattr(drafts, "db", lambda: fake_db)
+    monkeypatch.setattr(bank, "all_items", lambda force=False: list(written_items))
+    monkeypatch.setattr(bank, "invalidate", lambda: None)
+    written_items: list = []
+    good = {"enunciado": "¿Cuál es la idea principal del texto?", "opciones": ["Uno", "Dos", "Tres", "Cuatro"], "correcta": 2,
+            "explicacion": "Porque el texto lo afirma en su cierre.", "pistas": ["Lee el final."], "dificultad": "alta"}
+    bad = [{**good, "opciones": ["Uno", "uno", "Tres", "Cuatro"]}, {**good, "correcta": 4}, {**good, "explicacion": ""}, "texto suelto"]
+    out = drafts.create("LEC", call=lambda s, u: json.dumps({"contexto": "Un texto breve.", "preguntas": [good] + bad}))
+    assert out["created"] == 1 and len(written) == 1
+    item = next(iter(written.values()))
+    assert item["options"][item["correct"]] == "Tres" and item["status"] == "borrador" and item["origin"] == "ia" and item["b"] == 0.6
+    written_items.extend([{**item, "id": "x"}, {**item, "id": "y", "status": "publicado"}])
+    monkeypatch.setattr(bank.settings, "allow_unreviewed", True)
+    assert [it["id"] for it in bank.usable_items()] == ["y"]  # ni siquiera en modo de pruebas se usa un borrador de IA sin aprobar
+
+
+def test_tutor_blocks_paraphrased_answers_and_confirmations():
+    """Casos tomados de respuestas reales del modelo durante las pruebas (nov. 2026)."""
+    item = next(it for it in bank_seed.ITEMS if it["id"] == "LEC-105")
+    paraphrase = ("Piensa: el concejal habla de que el pasto vuelve a crecer rápido, pero el texto menciona que lo que se daña es el suelo que "
+                  "almacena agua y tarda generaciones en recuperarse. ¿Cuál de las opciones refleja esa diferencia?")
+    confirm = "Sí, el suelo es clave. Piensa: ¿qué tarda en recuperarse según el texto?"
+    fair = ("Entiendo que quieras confirmar la respuesta, pero primero intenta razonar: ¿qué tipo de recuperación menciona el concejal y cuál "
+            "describe el texto sobre el páramo? Busca la opción que use esa diferencia.")
+    assert tutor.paraphrases_answer(paraphrase, item) and not tutor.paraphrases_answer(fair, item)
+    assert tutor.confirms_guess(confirm) and not tutor.confirms_guess(fair)
+    for reply, source in ((paraphrase, "validado"), (confirm, "validado"), (fair, "modelo")):
+        assert tutor.ask(item, False, None, "¿es la del suelo?", call=lambda s, u, r=reply: r)["source"] == source, reply
+    # Después de responder sí puede explicar con todo detalle, y el formato se limpia.
+    after = tutor.ask(item, True, "A", "por qué", call=lambda s, u: "La clave habla del **suelo**: " + paraphrase)
+    assert after["source"] == "modelo" and "*" not in after["reply"]

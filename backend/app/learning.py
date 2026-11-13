@@ -12,6 +12,7 @@ from .catalog import AREAS, AREA_ORDER, comp_key, level_for
 from .config import settings
 from .db import db, now
 from .engine import bkt, irt, planner
+from .seed import families
 
 
 # ---------- progreso ----------
@@ -147,7 +148,8 @@ def ensure_plan(uid: str, repeat_focus: list[str] | None = None, progress: dict 
         week=progress["week"] + 1,
         mastery=progress["mastery"],
         thetas=thetas,
-        items=bank.usable_items(),
+        # Banco revisado más variantes recién generadas que este estudiante no ha visto.
+        items=bank.usable_items() + bank.fresh_variants(uid, progress["week"] + 1, set(progress["seen"])),
         seen=set(progress["seen"]),
         previous_focus=progress["focusHistory"],
         practice_n=settings.practice_items,
@@ -191,10 +193,13 @@ def sync(uid: str) -> dict:
             batch.update(attempts_ref.document(attempt_id), {"processed": True, "ignored": True})
             continue
         allowed = {it["id"] for it in session["items"]}
+        embedded = {it["id"]: it for it in session["items"] if families.is_generated(it["id"])}
         correct = total = hints = 0
         exit_responses: dict[str, list] = {}
         for ans in attempt.get("answers", []):
-            item = items.get(ans.get("itemId"))
+            # Las variantes generadas no están en el banco: se califican con la copia guardada en el plan,
+            # que solo el servidor puede escribir.
+            item = items.get(ans.get("itemId")) or embedded.get(ans.get("itemId"))
             if not item or item["id"] not in allowed:
                 continue
             ok = ans.get("selected") == item["correct"]
@@ -205,8 +210,10 @@ def sync(uid: str) -> dict:
             key = comp_key(item["area"], item["competencia"])
             mastery[key] = round(bkt.update(mastery.get(key, 0.3), ok, hinted), 3)
             seen.add(item["id"])
-            batch.set(db().collection("itemStats").document(item["id"]), {
-                "area": item["area"], "competencia": item["competencia"],
+            generated = families.is_generated(item["id"])
+            stats_id = f"G.{families.family_of(item['id'])}" if generated else item["id"]
+            batch.set(db().collection("itemStats").document(stats_id), {
+                "area": item["area"], "competencia": item["competencia"], **({"example": item["stem"]} if generated else {}),
                 "n": firestore.Increment(1), "correct": firestore.Increment(1 if ok else 0),
             }, merge=True)
             if session["type"] == "salida":

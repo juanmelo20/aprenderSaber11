@@ -41,6 +41,8 @@ def _client_item(item: dict) -> dict:
         "correct": item["correct"],
         "explanation": item.get("explanation", ""),
         "hints": item.get("hints", []),
+        "a": item.get("a", 1.0),
+        "b": item.get("b", 0.0),
     }
 
 
@@ -51,7 +53,19 @@ def _choose(items: list[dict], key: str, n: int, theta: float, seen: set[str], u
     def rank(it: dict) -> tuple:
         return (it["id"] in seen, pools.index(it["pool"]), abs(it.get("b", 0.0) - theta) + rng.random() * 0.3)
 
-    chosen = sorted(cands, key=rank)[:n]
+    # Nunca una pregunta ya vista si queda alguna nueva. Dentro de las nuevas, variedad: primero una por
+    # familia (misma plantilla con otros números) y solo si faltan se repite familia.
+    ordered, chosen, per_family = sorted(cands, key=rank), [], {}
+    for group in ([it for it in ordered if it["id"] not in seen], [it for it in ordered if it["id"] in seen]):
+        for cap in (1, 2, n):
+            for it in group:
+                if len(chosen) >= n:
+                    break
+                fam = it.get("origin") if str(it.get("origin", "")).startswith("familia:") else it["id"]
+                if it in chosen or per_family.get(fam, 0) >= cap:
+                    continue
+                chosen.append(it)
+                per_family[fam] = per_family.get(fam, 0) + 1
     used.update(it["id"] for it in chosen)
     return chosen
 

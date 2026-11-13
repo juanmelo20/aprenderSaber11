@@ -108,8 +108,8 @@ def teacher_overview(area: str, group: str | None = None, user: dict = Depends(r
     hard = []
     for snap in db().collection("itemStats").where(filter=FieldFilter("area", "==", area)).stream():
         s = snap.to_dict()
-        if s.get("n", 0) >= 3 and snap.id in items:
-            it = items[snap.id]
+        it = items.get(snap.id) or ({"stem": "Familia de preguntas, por ejemplo: " + s["example"], "competencia": s["competencia"]} if s.get("example") else None)
+        if s.get("n", 0) >= 3 and it:
             hard.append({"id": snap.id, "stem": it["stem"], "competencia": AREAS[area]["competencias"][it["competencia"]][0],
                          "n": s["n"], "pct": round(100 * s.get("correct", 0) / s["n"])})
     hard = sorted(hard, key=lambda h: h["pct"])[:5]
@@ -128,7 +128,7 @@ def list_items(area: str, status: str | None = None, user: dict = Depends(requir
     area = area.upper()
     if user["role"] == "docente" and area not in user.get("areas", []):
         raise HTTPException(403, "No tienes asignada esa área.")
-    out = [it for it in bank.all_items(force=True) if it["area"] == area and (not status or it.get("status") == status)]
+    out = [it for it in bank.all_items() if it["area"] == area and (not status or it.get("status") == status)]
     return sorted(out, key=lambda it: (it.get("status", ""), it["competencia"], it["id"]))
 
 

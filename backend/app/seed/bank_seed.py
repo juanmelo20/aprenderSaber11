@@ -6,10 +6,18 @@ El parámetro b (dificultad) es una estimación inicial; se recalibra con respue
 """
 from __future__ import annotations
 
+import random
+
 ITEMS: list[dict] = []
 
 
 def I(id, area, comp, pool, b, stem, opts, correct, expl, hints, ctx=None, a=1.0, componente=None):
+    # El orden de las opciones se baraja (siempre igual para cada pregunta) para que la clave no caiga
+    # casi siempre en la misma letra. Por eso ninguna explicación ni pista debe mencionar letras.
+    order = list(range(4))
+    random.Random(f"orden:{id}").shuffle(order)
+    correct = "ABCD"[order.index("ABCD".index(correct))]
+    opts = [opts[i] for i in order]
     ITEMS.append({
         "id": id, "area": area, "competencia": comp, "pool": pool, "a": a, "b": b, "c": 0.25,
         "context": ctx, "stem": stem, "options": dict(zip("ABCD", opts)), "correct": correct,

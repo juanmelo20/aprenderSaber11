@@ -96,6 +96,7 @@ function ItemReview({ areas }: { areas: string[] }) {
   const [area, setArea] = useState(areas[0]);
   const [items, setItems] = useState<any[] | null>(null);
   const [error, setError] = useState("");
+  const [shown, setShown] = useState(8);
   const load = () => api(`/api/items?area=${area}&status=borrador`).then(setItems).catch((e) => setError(e.message));
   useEffect(() => {
     setItems(null);
@@ -119,7 +120,9 @@ function ItemReview({ areas }: { areas: string[] }) {
       <p className="hint">Estas preguntas están en borrador. Revise enunciado, clave y explicación; al aprobar quedan publicadas con su nombre como revisor.</p>
       {error && <Notice kind="error">{error}</Notice>}
       {items && items.length === 0 && <p>No hay preguntas pendientes en esta área.</p>}
-      {items?.map((it) => <ReviewCard key={it.id} item={it} onDecide={decide} />)}
+      {items && items.length > 0 && <p className="hint">{items.length} pendientes en esta área.</p>}
+      {items?.slice(0, shown).map((it) => <ReviewCard key={it.id} item={it} onDecide={decide} />)}
+      {items && items.length > shown && <button className="secondary" onClick={() => setShown(shown + 8)}>Mostrar más</button>}
     </>
   );
 }
@@ -129,6 +132,8 @@ function ReviewCard({ item, onDecide }: { item: any; onDecide: (id: string, stat
   return (
     <div className="sheet review-card">
       <small>{item.id}, {item.competencia}, uso: {item.pool}</small>
+      {item.pool === "plantilla" && <Notice>Esta pregunta es un ejemplo de una familia: al aprobarla, el sistema podrá generar variantes con otros datos y la misma estructura. Revise que el planteamiento y el procedimiento sean correctos.</Notice>}
+      {item.origin === "ia" && <Notice>Borrador redactado por un modelo de lenguaje. Verifique cada dato y que solo una opción sea correcta antes de aprobar.</Notice>}
       {item.context && <p className="context">{item.context}</p>}
       <p className="stem">{item.stem}</p>
       <ul className="plain">

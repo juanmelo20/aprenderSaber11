@@ -24,10 +24,15 @@ class Settings:
 
         # Tutor (GroqCloud, API compatible con OpenAI). Sin clave, el tutor usa solo pistas validadas.
         self.groq_api_key = os.getenv("GROQ_API_KEY", "")
-        self.groq_model = os.getenv("GROQ_MODEL", "llama-3.1-8b-instant")
+        self.groq_model = os.getenv("GROQ_MODEL", "openai/gpt-oss-120b")
+        # Solo para modelos con razonamiento (familia gpt-oss): "low" responde más rápido y gasta menos.
+        self.groq_reasoning = os.getenv("GROQ_REASONING_EFFORT", "low")
         self.groq_url = os.getenv("GROQ_URL", "https://api.groq.com/openai/v1/chat/completions")
-        self.tutor_daily_limit = int(os.getenv("TUTOR_DAILY_LIMIT", "20"))
-        self.tutor_rpm = int(os.getenv("TUTOR_RPM", "25"))  # por debajo de las 30 rpm del plan gratuito
+        self.tutor_daily_limit = int(os.getenv("TUTOR_DAILY_LIMIT", "10"))
+        # El plan gratuito de Groq limita los tokens por minuto (8.000 al revisar en nov. 2026): unas 10 consultas.
+        self.tutor_rpm = int(os.getenv("TUTOR_RPM", "10"))
+        # Cada cuánto se vuelve a leer el banco desde Firestore (segundos). Leerlo cuesta una lectura por pregunta.
+        self.bank_ttl = int(os.getenv("BANK_TTL", "21600"))
 
         # Correo opcional (Brevo). Sin clave, los enlaces se muestran para compartir.
         self.brevo_api_key = os.getenv("BREVO_API_KEY", "")

@@ -70,7 +70,7 @@ def tutor_ask(body: TutorAsk, user: dict = Depends(learner)):
         raise HTTPException(404, "Esa pregunta no pertenece a tu plan.")
     if not session.get("tutor"):
         raise HTTPException(403, "El cuestionario de salida se responde sin ayudas.")
-    item = bank.by_id().get(body.itemId)
+    item = bank.by_id().get(body.itemId) or next((it for it in session["items"] if it["id"] == body.itemId and it["id"].startswith("G.")), None)
     if not item:
         raise HTTPException(404, "Pregunta no encontrada.")
     usage_ref = db().collection("users").document(uid).collection("tutorUsage").document(dt.date.today().isoformat())

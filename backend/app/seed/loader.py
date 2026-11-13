@@ -4,11 +4,11 @@ from __future__ import annotations
 from .. import bank
 from ..catalog import AREA_ORDER
 from ..db import db, now
-from . import bank_seed, math_families
+from . import bank_lec, bank_nat_ing, bank_seed, bank_soc, families  # noqa: F401  (los bank_* agregan sus preguntas al importarse)
 
 
 def seed_items() -> list[dict]:
-    return list(bank_seed.ITEMS) + math_families.generate()
+    return list(bank_seed.ITEMS) + families.templates()
 
 
 def load_seed() -> dict:

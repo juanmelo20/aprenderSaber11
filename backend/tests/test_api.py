@@ -60,7 +60,7 @@ def test_01_admin_bootstrap_and_seed(api):
     me = api.get("/api/me", headers=H(S["admin"])).json()
     assert me["role"] == "admin" and me["access"]["ok"]
     seed = api.post("/api/admin/items/seed", headers=H(S["admin"])).json()
-    assert seed["written"] >= 100 and seed["simulacroItems"] == 15
+    assert seed["written"] >= 290 and seed["simulacroItems"] == 15
     stats = api.get("/api/admin/items/stats", headers=H(S["admin"])).json()
     assert set(stats["byArea"]) == {"LEC", "MAT", "SOC", "NAT", "ING"}
 
@@ -128,7 +128,7 @@ def run_diagnostic(api, tok, area, ability):
         selected = real["correct"] if rng.random() < ability else next(k for k in "ABCD" if k != real["correct"])
         state = api.post(f"/api/diagnostic/{area}/answer", headers=H(tok), json={"itemId": item["id"], "selected": selected}).json()
         n += 1
-    assert 6 <= n <= 8  # el banco semilla tiene 8 por área; el tope general es 10
+    assert 6 <= n <= 10
     return state["result"]
 
 

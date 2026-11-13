@@ -16,6 +16,8 @@ export default function Admin() {
   const [stats, setStats] = useState<any>(null);
   const [msg, setMsg] = useState<{ kind: "ok" | "error"; text: string; link?: string } | null>(null);
   const [form, setForm] = useState({ name: "", municipality: "", seats: 30, expires: inAYear(), adminEmail: "", adminName: "" });
+  const [draftArea, setDraftArea] = useState("LEC");
+  const [drafting, setDrafting] = useState(false);
   const [lic, setLic] = useState({ email: "", plan: "mensual", expires: new Date(Date.now() + 30 * 864e5).toISOString().slice(0, 10) });
 
   const load = () => {
@@ -116,20 +118,32 @@ export default function Admin() {
         {stats && (
           <div className="table-wrap">
             <table className="table">
-              <thead><tr><th>Área</th><th>Diagnóstico</th><th>Práctica</th><th>Simulacro</th><th>Publicadas por docentes</th></tr></thead>
+              <thead><tr><th>Área</th><th>Diagnóstico</th><th>Práctica</th><th>Simulacro</th><th>Familias que generan variantes</th><th>Aprobadas por docentes</th></tr></thead>
               <tbody>
                 {AREA_ORDER.map((a) => {
                   const s = stats.byArea[a] || {};
                   const sum = (pool: string) => Object.entries<number>(s).filter(([k]) => k.startsWith(pool + "/") && !k.endsWith("/descartado")).reduce((t, [, v]) => t + v, 0);
                   const published = Object.entries<number>(s).filter(([k]) => k.endsWith("/publicado")).reduce((t, [, v]) => t + v, 0);
-                  return <tr key={a}><td>{AREAS[a].name}</td><td>{sum("diagnostico")}</td><td>{sum("practica")}</td><td>{sum("simulacro")}</td><td>{published}</td></tr>;
+                  return <tr key={a}><td>{AREAS[a].name}</td><td>{sum("diagnostico")}</td><td>{sum("practica")}</td><td>{sum("simulacro")}</td><td>{stats.familiesByArea?.[a] || 0}</td><td>{published}</td></tr>;
                 })}
               </tbody>
             </table>
           </div>
         )}
-        <p className="hint">El banco semilla está en borrador: sirve para probar, pero cada pregunta debe aprobarla un docente del área antes del uso real con estudiantes.</p>
+        <p className="hint">Una familia es una plantilla que produce preguntas nuevas cada vez (otros números, otras frases), así que esa práctica no se repite. Las preguntas de lectura no se pueden generar así: su banco crece escribiendo más. Todo entra en borrador y debe aprobarlo un docente del área antes del uso real.</p>
         <button className="secondary" onClick={() => run(() => api("/api/admin/items/seed", { method: "POST" }), (r) => ({ text: `Banco cargado: ${r.written} preguntas escritas, ${r.skipped} ya revisadas sin tocar.` }))}>Cargar o actualizar banco semilla</button>
+        <div className="form-box stack">
+          <h3>Redactar borradores con IA</h3>
+          <p className="hint">El modelo escribe un texto o caso nuevo con cuatro preguntas para la competencia que menos preguntas tiene en el área. Quedan en borrador: ningún estudiante las ve hasta que un docente las revisa y aprueba.</p>
+          <div className="row">
+            <label>Área<select value={draftArea} onChange={(e) => setDraftArea(e.target.value)}>{AREA_ORDER.map((a) => <option key={a} value={a}>{AREAS[a].name}</option>)}</select></label>
+            <button className="secondary" disabled={drafting} onClick={async () => {
+              setDrafting(true);
+              await run(() => api(`/api/admin/items/draft/${draftArea}`, { method: "POST" }), (r) => ({ text: `${r.created} borradores creados para "${r.competencia}". Ya están en la bandeja de revisión del docente del área.` }));
+              setDrafting(false);
+            }}>{drafting ? "Redactando…" : "Redactar 4 borradores"}</button>
+          </div>
+        </div>
       </section>
 
       <section>

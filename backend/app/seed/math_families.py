@@ -1,7 +1,7 @@
 """Familias de ítems de Matemáticas (generación automática por plantilla).
 
 Cada familia produce variantes con números distintos, clave calculada y distractores que
-corresponden a errores frecuentes. Así el banco de práctica de esta área no se agota.
+corresponden a errores frecuentes. El motor que las convierte en preguntas está en families.py.
 """
 from __future__ import annotations
 
@@ -154,24 +154,3 @@ def media_atipico(rng):
 
 
 FAMILIES = [descuento, proporcion, promedio_faltante, probabilidad, lineal, tabla_variacion, escala_area, media_atipico]
-
-
-def generate(variants: int = 3, seed: int = 2026) -> list[dict]:
-    """Variantes reproducibles (misma semilla, mismos ítems e identificadores)."""
-    items = []
-    for f_idx, family in enumerate(FAMILIES, start=1):
-        rng = random.Random(seed * 100 + f_idx)
-        made, tries, stems = 0, 0, set()
-        while made < variants and tries < 60:
-            tries += 1
-            spec = family(rng)
-            if not spec or spec["stem"] + str(spec.get("context")) in stems:
-                continue
-            stems.add(spec["stem"] + str(spec.get("context")))
-            made += 1
-            options, correct = spec.pop("packed")
-            items.append({
-                "id": f"MAT-F{f_idx}-{made}", "area": "MAT", "pool": "practica", "a": 1.0, "c": 0.25, "context": spec.get("context"),
-                "options": options, "correct": correct, "status": "borrador", "origin": f"familia:{family.__name__}", **spec,
-            })
-    return items
