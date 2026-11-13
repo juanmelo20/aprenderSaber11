@@ -1,0 +1,15 @@
+from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
+
+from .config import settings
+from .routers import admin, common, learner, staff
+
+app = FastAPI(title=f"{settings.app_name} API", version="0.1.0")
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=settings.cors_origins,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+for r in (common.router, learner.router, staff.router, admin.router):
+    app.include_router(r)

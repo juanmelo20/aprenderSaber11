@@ -1,0 +1,9 @@
+{
+  "name": "rumbo11",
+  "private": true,
+  "scripts": {
+    "emuladores": "firebase emulators:start --project demo-rumbo11 --only auth,firestore",
+    "desplegar:web": "npm --prefix frontend run build && firebase deploy --only hosting,firestore:rules"
+  },
+  "devDependencies": { "firebase-tools": "^14.0.0" }
+}

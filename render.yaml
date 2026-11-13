@@ -1,0 +1,26 @@
+# Despliegue del servidor (API) en Render, plan gratuito.
+# En Render: New > Blueprint > elegir este repositorio. Las variables con "sync: false" se escriben a mano en el panel.
+services:
+  - type: web
+    name: rumbo11-api
+    runtime: docker
+    plan: free
+    rootDir: backend
+    healthCheckPath: /api/health
+    envVars:
+      - key: FIREBASE_PROJECT_ID
+        sync: false
+      - key: FIREBASE_SERVICE_ACCOUNT_JSON
+        sync: false
+      - key: ADMIN_EMAILS
+        sync: false
+      - key: CORS_ORIGINS
+        sync: false
+      - key: FRONTEND_URL
+        sync: false
+      - key: GROQ_API_KEY
+        sync: false
+      - key: RESEARCH_SALT
+        generateValue: true
+      - key: ALLOW_UNREVIEWED_ITEMS
+        value: "false"

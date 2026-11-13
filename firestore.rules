@@ -1,0 +1,25 @@
+rules_version = '2';
+// El cliente solo puede: leer su perfil, su progreso y sus planes, y crear sus intentos.
+// Todo lo demás (banco de ítems, instituciones, calificaciones) pasa por el backend.
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function me(uid) { return request.auth != null && request.auth.uid == uid; }
+
+    match /users/{uid} {
+      allow read: if me(uid);
+      match /plans/{planId} { allow read: if me(uid); }
+      match /simulacroResults/{simId} { allow read: if me(uid); }
+      match /attempts/{attemptId} {
+        allow read: if me(uid);
+        allow create: if me(uid)
+          && request.resource.data.keys().hasOnly(['planId', 'sessionId', 'type', 'answers', 'startedAt', 'finishedAt', 'processed'])
+          && request.resource.data.processed == false
+          && request.resource.data.answers is list
+          && request.resource.data.answers.size() <= 40
+          && attemptId == request.resource.data.planId + '_' + request.resource.data.sessionId;
+      }
+    }
+    match /progress/{uid} { allow read: if me(uid); }
+    match /{document=**} { allow read, write: if false; }
+  }
+}
