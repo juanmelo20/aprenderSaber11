@@ -49,7 +49,7 @@ En Windows (PowerShell) las variables se definen así: `$env:FIRESTORE_EMULATOR_
 
 ```bash
 cd backend && pytest                 # 32 pruebas: motores, banco, tutor y flujo completo contra los emuladores
-./e2e/correr.sh carpeta_capturas     # recorrido en Chrome (requiere `pip install playwright`); usa la web compilada: npm run build && npx vite preview --port 5173
+./e2e/correr.sh carpeta_capturas     # recorrido en Chrome (requiere `pip install playwright`); usa la web compilada contra los emuladores: npx vite build --mode e2e && npx vite preview --port 5173
 ```
 
 ## Cómo funciona
@@ -93,13 +93,26 @@ Lectura Crítica, Sociales y la lectura en Inglés dependen de textos: no se pue
 
 ## Publicar (todo en planes gratuitos)
 
-1. **Firebase.** El proyecto es `aprendersaber11`, en plan Spark. Activar Authentication (correo y contraseña) y Firestore. En Authentication > Plantillas, poner el correo de restablecimiento en español.
-2. **Cuenta de servicio.** Configuración del proyecto > Cuentas de servicio > Generar clave privada. Ese archivo no se sube a GitHub: su contenido va en la variable `FIREBASE_SERVICE_ACCOUNT_JSON` del servidor.
-3. **Servidor en Render.** New > Blueprint > este repositorio (usa `render.yaml`). Llenar las variables que describe `backend/.env.example`. En el plan gratuito el servidor se duerme tras un rato sin uso y la primera petición tarda cerca de un minuto en despertar.
-4. **Web en Firebase Hosting.** Copiar `frontend/.env.example` como `frontend/.env.production` y llenar `VITE_FIREBASE_API_KEY` y `VITE_FIREBASE_APP_ID` (Firebase > Configuración del proyecto > Tus apps > app web). Luego `npx firebase login` y `npm run desplegar:web`, que publica la web y las reglas de Firestore en el proyecto `aprendersaber11` (definido en `.firebaserc`). La web queda en https://aprendersaber11.web.app.
-5. **Primer administrador.** Poner el correo en `ADMIN_EMAILS`, crear ese usuario en Firebase > Authentication, y en la app usar "Activar mi cuenta u olvidé la contraseña". Al crear la contraseña desde el enlace, el correo queda verificado y la cuenta entra como administrador.
-6. **Banco.** Entrar como administrador y pulsar "Cargar o actualizar banco semilla". Con `ALLOW_UNREVIEWED_ITEMS=false` los estudiantes solo ven preguntas que un docente ya aprobó.
-7. **Tutor.** Poner la clave de GroqCloud en la variable `GROQ_API_KEY` del servidor (nunca en el código ni en GitHub) y activar la retención cero de datos en la consola de Groq. El modelo por defecto es `openai/gpt-oss-120b`. Al probar la clave en noviembre de 2026, el plan gratuito permitía 1.000 consultas al día y 8.000 tokens por minuto (unas 10 consultas por minuto); por eso cada estudiante tiene 10 consultas diarias al modelo y, pasado el límite, recibe las pistas escritas.
+**Ya está hecho en el proyecto de Firebase `aprendersaber11` (plan Spark):**
+
+- Inicio de sesión con correo y contraseña, activado.
+- Base de datos Firestore creada en `nam5` (Estados Unidos), en modo de producción.
+- Reglas de seguridad de `firestore.rules`, publicadas.
+- App web registrada; su configuración está en `frontend/.env.production`.
+
+**Falta, y requiere tus cuentas:**
+
+1. **Clave de la cuenta de servicio.** En Firebase: Configuración del proyecto > Cuentas de servicio > Generar nueva clave privada. Descarga un archivo `.json`. Es un secreto: no lo subas a GitHub ni lo pegues en un chat.
+2. **Servidor en Render.** Crea una cuenta en render.com con tu GitHub, luego New > Blueprint > repositorio `aprenderSaber11` (usa `render.yaml`). Te pedirá tres valores:
+   - `FIREBASE_SERVICE_ACCOUNT_JSON`: el contenido completo del archivo del paso 1.
+   - `ADMIN_EMAILS`: tu correo.
+   - `GROQ_API_KEY`: tu clave de Groq.
+   En el plan gratuito el servidor se duerme tras un rato sin uso y la primera petición tarda cerca de un minuto en despertar. Si la dirección que te da Render no es `https://aprendersaber11-api.onrender.com`, cambia `VITE_API_URL` en `frontend/.env.production`.
+3. **Web en Firebase Hosting.** En tu computador, dentro de la carpeta del proyecto: `npm install`, `npm --prefix frontend install`, `npx firebase login` y `npm run desplegar:web`. La web queda en https://aprendersaber11.web.app.
+4. **Primer administrador.** En Firebase > Authentication > Usuarios, agrega tu correo con cualquier contraseña. En la app usa "Activar mi cuenta u olvidé la contraseña": al crear la contraseña desde el enlace, el correo queda verificado y entras como administrador.
+5. **Banco.** Entra como administrador y pulsa "Cargar o actualizar banco semilla". Con `ALLOW_UNREVIEWED_ITEMS=false` (así queda en Render) los estudiantes solo ven preguntas y familias que un docente ya aprobó.
+6. **Tutor.** Activa la retención cero de datos en la consola de Groq. El modelo es `openai/gpt-oss-120b`. Al probar la clave en noviembre de 2026, el plan gratuito permitía 1.000 consultas al día y 8.000 tokens por minuto (unas 10 por minuto); por eso cada estudiante tiene 10 consultas diarias al modelo y, pasado el límite, recibe las pistas escritas.
+7. **Correos en español.** En Authentication > Plantillas, cambia el idioma de la plantilla de restablecimiento de contraseña.
 
 ## Lo que falta antes de usarla con estudiantes reales
 
@@ -108,7 +121,7 @@ Lectura Crítica, Sociales y la lectura en Inglés dependen de textos: no se pue
 - **Calibración.** La dificultad de cada pregunta es una estimación de quien la escribió. Los cortes de nivel usan los rangos de puntaje del ICFES, pero la escala de la app no está equiparada con la del examen: los niveles son orientativos hasta calibrar con respuestas reales (la colección `itemStats` ya las va acumulando).
 - **Texto de autorización.** Debe revisarlo un abogado (Ley 1581 de 2012 y Decreto 1377 de 2013) antes de enviarlo a las familias.
 - **Pagos.** No hay pasarela: el administrador activa cada licencia a mano después de recibir el pago.
-- **Lo que no se ha probado.** El despliegue real en Firebase y Render, el envío de correos con Brevo y la imagen de Docker. El tutor y la redacción de borradores sí se probaron con el modelo real de Groq.
+- **Lo que no se ha probado.** La app publicada de punta a punta (falta el servidor en Render y subir la web), el envío de correos con Brevo y la imagen de Docker. El tutor y la redacción de borradores sí se probaron con el modelo real de Groq.
 - **Privacidad del cuestionario de salida.** Para funcionar sin conexión, el plan guardado en el dispositivo incluye las claves de sus preguntas. Un estudiante con conocimientos técnicos podría verlas. El simulacro general no tiene ese problema: sus claves nunca salen del servidor antes de entregar.
 - **Tablero docente.** Se calcula al abrirlo; con cientos de estudiantes conviene precalcular.
 

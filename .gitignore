@@ -11,3 +11,4 @@ __pycache__/
 *serviceAccount*.json
 *service-account*.json
 .firebase/
+!frontend/.env.production

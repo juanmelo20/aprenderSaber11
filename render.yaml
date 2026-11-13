@@ -2,22 +2,24 @@
 # En Render: New > Blueprint > elegir este repositorio. Las variables con "sync: false" se escriben a mano en el panel.
 services:
   - type: web
-    name: rumbo11-api
+    name: aprendersaber11-api
     runtime: docker
     plan: free
     rootDir: backend
     healthCheckPath: /api/health
     envVars:
       - key: FIREBASE_PROJECT_ID
-        sync: false
+        value: aprendersaber11
       - key: FIREBASE_SERVICE_ACCOUNT_JSON
         sync: false
       - key: ADMIN_EMAILS
         sync: false
       - key: CORS_ORIGINS
-        sync: false
+        value: https://aprendersaber11.web.app,https://aprendersaber11.firebaseapp.com
       - key: FRONTEND_URL
-        sync: false
+        value: https://aprendersaber11.web.app
+      - key: GROQ_MODEL
+        value: openai/gpt-oss-120b
       - key: GROQ_API_KEY
         sync: false
       - key: RESEARCH_SALT
