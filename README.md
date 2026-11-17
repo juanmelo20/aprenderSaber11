@@ -108,7 +108,16 @@ Lectura Crítica, Sociales y la lectura en Inglés dependen de textos: no se pue
    - `ADMIN_EMAILS`: tu correo.
    - `GROQ_API_KEY`: tu clave de Groq.
    En el plan gratuito el servidor se duerme tras un rato sin uso y la primera petición tarda cerca de un minuto en despertar. Si la dirección que te da Render no es `https://aprendersaber11-api.onrender.com`, cambia `VITE_API_URL` en `frontend/.env.production`.
-3. **Web en Firebase Hosting.** En tu computador, dentro de la carpeta del proyecto: `npm install`, `npm --prefix frontend install`, `npx firebase login` y `npm run desplegar:web`. La web queda en https://aprendersaber11.web.app.
+3. **Web en Firebase Hosting.** Siempre desde la última versión de GitHub (no desde un .zip viejo: le falta `frontend/.env.production` y la web queda apuntando a los emuladores). La primera vez:
+   ```
+   git clone https://github.com/juanmelo20/aprenderSaber11.git
+   cd aprenderSaber11
+   npm install
+   npm --prefix frontend install
+   npx firebase login
+   npm run desplegar:web
+   ```
+   Las siguientes veces basta `git pull` y `npm run desplegar:web`. Si falta la configuración, la compilación se detiene con un mensaje en vez de publicar una web rota. La web queda en https://aprendersaber11.web.app.
 4. **Primer administrador.** En Firebase > Authentication > Usuarios, agrega tu correo con cualquier contraseña. En la app usa "Activar mi cuenta u olvidé la contraseña": al crear la contraseña desde el enlace, el correo queda verificado y entras como administrador.
 5. **Banco.** Entra como administrador y pulsa "Cargar o actualizar banco semilla". Con `ALLOW_UNREVIEWED_ITEMS=false` (así queda en Render) los estudiantes solo ven preguntas y familias que un docente ya aprobó.
 6. **Tutor.** Activa la retención cero de datos en la consola de Groq. El modelo es `openai/gpt-oss-120b`. Al probar la clave en noviembre de 2026, el plan gratuito permitía 1.000 consultas al día y 8.000 tokens por minuto (unas 10 por minuto); por eso cada estudiante tiene 10 consultas diarias al modelo y, pasado el límite, recibe las pistas escritas.
