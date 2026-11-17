@@ -4,7 +4,10 @@ import { connectFirestoreEmulator, initializeFirestore, persistentLocalCache, pe
 
 const env = import.meta.env;
 export const APP_NAME: string = env.VITE_APP_NAME || "Rumbo 11";
-const useEmulators = env.VITE_USE_EMULATORS === "true" || !env.VITE_FIREBASE_API_KEY;
+const onThisComputer = ["localhost", "127.0.0.1"].includes(location.hostname);
+// Los emuladores solo tienen sentido cuando la web corre en el mismo computador que los emuladores.
+export const usingEmulators = onThisComputer && (env.VITE_USE_EMULATORS === "true" || !env.VITE_FIREBASE_API_KEY);
+const useEmulators = usingEmulators;
 
 const app = initializeApp({
   apiKey: env.VITE_FIREBASE_API_KEY || "demo",
@@ -80,6 +83,12 @@ export function authMessage(code: string): string {
     "auth/weak-password": "La contraseña debe tener al menos 6 caracteres.",
     "auth/invalid-email": "Escribe un correo válido.",
     "auth/network-request-failed": "No hay conexión. Intenta de nuevo cuando tengas señal.",
+    "auth/too-many-requests": "Demasiados intentos seguidos. Espera unos minutos e intenta de nuevo.",
   };
+  if (code === "auth/network-request-failed" && navigator.onLine) {
+    return usingEmulators
+      ? "No responden los emuladores de Firebase. Enciéndelos con 'npm run emuladores' o publica la web con 'npm run desplegar:web'."
+      : "No se pudo conectar con el servicio de cuentas. Recarga la página con Ctrl + Shift + R. Si sigue igual, desactiva el bloqueador de anuncios para este sitio.";
+  }
   return map[code] || "No se pudo completar. Intenta de nuevo.";
 }
