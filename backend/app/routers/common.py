@@ -25,7 +25,7 @@ class SelfConsent(BaseModel):
 
 @router.get("/health")
 def health():
-    return {"ok": True, "app": settings.app_name}
+    return {"ok": True, "app": settings.app_name, "version": "0.3.0"}
 
 
 @router.get("/catalog")

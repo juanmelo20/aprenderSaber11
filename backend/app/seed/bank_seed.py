@@ -11,7 +11,7 @@ import random
 ITEMS: list[dict] = []
 
 
-def I(id, area, comp, pool, b, stem, opts, correct, expl, hints, ctx=None, a=1.0, componente=None):
+def I(id, area, comp, pool, b, stem, opts, correct, expl, hints, ctx=None, a=1.0, componente=None, sim=None):
     # El orden de las opciones se baraja (siempre igual para cada pregunta) para que la clave no caiga
     # casi siempre en la misma letra. Por eso ninguna explicación ni pista debe mencionar letras.
     order = list(range(4))
@@ -22,6 +22,7 @@ def I(id, area, comp, pool, b, stem, opts, correct, expl, hints, ctx=None, a=1.0
         "id": id, "area": area, "competencia": comp, "pool": pool, "a": a, "b": b, "c": 0.25,
         "context": ctx, "stem": stem, "options": dict(zip("ABCD", opts)), "correct": correct,
         "explanation": expl, "hints": hints, "componente": componente, "status": "borrador", "origin": "semilla",
+        **({"sim": sim} if sim else {}),
     })
 
 

@@ -4,7 +4,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from .config import settings
 from .routers import admin, common, learner, staff
 
-app = FastAPI(title=f"{settings.app_name} API", version="0.1.0")
+app = FastAPI(title=f"{settings.app_name} API", version="0.3.0")
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.cors_origins,

@@ -310,3 +310,24 @@ def test_tutor_blocks_paraphrased_answers_and_confirmations():
     # Después de responder sí puede explicar con todo detalle, y el formato se limpia.
     after = tutor.ask(item, True, "A", "por qué", call=lambda s, u: "La clave habla del **suelo**: " + paraphrase)
     assert after["source"] == "modelo" and "*" not in after["reply"]
+
+
+def test_simulacros_follow_exam_proportions_and_never_leak_into_practice():
+    import random
+
+    from app.seed import families
+    from app.seed.loader import seed_items, simulacro_defs
+    items = seed_items()
+    by_id = {it["id"]: it for it in items}
+    defs = simulacro_defs(items)
+    assert [len(defs[k]["itemIds"]) for k in ("general-1", "general-2", "general-3")] == [15, 60, 60]
+    for k in ("general-2", "general-3"):
+        areas = [by_id[i]["area"] for i in defs[k]["itemIds"]]
+        assert {a: areas.count(a) for a in set(areas)} == {"LEC": 10, "MAT": 12, "SOC": 12, "NAT": 13, "ING": 13}
+    all_sim = [i for d in defs.values() for i in d["itemIds"]]
+    assert len(all_sim) == len(set(all_sim))
+    reserved = {it["sig"] for it in items if it.get("sig")}
+    assert len(reserved) == 70
+    names = {by_id[i]["origin"].split(":")[1] for i in all_sim if by_id[i].get("sig")}
+    practice = families.fresh(sorted(names), set(), 60, random.Random(9), exclude=reserved)
+    assert practice and not {it["id"].rsplit(".", 1)[1] for it in practice} & reserved

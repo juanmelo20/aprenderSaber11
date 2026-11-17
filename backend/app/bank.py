@@ -48,7 +48,8 @@ def approved_families() -> list[str]:
 def fresh_variants(uid: str, week: int, seen: set[str], per_family: int = 3) -> list[dict]:
     """Preguntas nuevas para este estudiante, generadas a partir de las familias aprobadas."""
     rng = random.Random(zlib.crc32(f"{uid}:{week}".encode()))
-    return families.fresh(approved_families(), seen, per_family, rng)
+    reserved = {it["sig"] for it in all_items() if it.get("sig")}  # variantes que pertenecen a un simulacro
+    return families.fresh(approved_families(), seen, per_family, rng, exclude=reserved)
 
 
 def by_id() -> dict[str, dict]:

@@ -60,7 +60,7 @@ def test_01_admin_bootstrap_and_seed(api):
     me = api.get("/api/me", headers=H(S["admin"])).json()
     assert me["role"] == "admin" and me["access"]["ok"]
     seed = api.post("/api/admin/items/seed", headers=H(S["admin"])).json()
-    assert seed["written"] >= 290 and seed["simulacroItems"] == 15
+    assert seed["written"] >= 470 and seed["simulacros"] == {"general-1": 15, "general-2": 60, "general-3": 60}
     stats = api.get("/api/admin/items/stats", headers=H(S["admin"])).json()
     assert set(stats["byArea"]) == {"LEC", "MAT", "SOC", "NAT", "ING"}
 
@@ -233,7 +233,8 @@ def test_06_failed_exit_quiz_repeats_focus(api):
 
 def test_07_simulacro(api):
     sims = api.get("/api/simulacros", headers=H(S["ana"])).json()
-    assert len(sims) == 1 and sims[0]["questions"] == 15 and not sims[0]["submitted"]
+    assert [s["id"] for s in sims] == ["general-1", "general-2", "general-3"] and [s["questions"] for s in sims] == [15, 60, 60]
+    assert sims[1]["minutes"] == 120 and not any(s["submitted"] for s in sims)
     sim = api.get("/api/simulacros/general-1", headers=H(S["ana"])).json()
     assert all("correct" not in it for it in sim["items"])
     from app.seed.loader import seed_items
@@ -243,6 +244,12 @@ def test_07_simulacro(api):
     for p in db().collection("users").document(S["ana_uid"]).collection("plans").stream():
         plan_ids |= {it["id"] for s in p.to_dict()["sessions"] for it in s["items"]}
     assert not plan_ids & {it["id"] for it in sim["items"]}
+    # Los simulacros tipo examen tampoco comparten preguntas entre sí, ni con la práctica (ni siquiera el mismo texto generado).
+    exam = [api.get(f"/api/simulacros/general-{k}", headers=H(S["ana"])).json()["items"] for k in (2, 3)]
+    texts = lambda its: {(it.get("context"), it["stem"], tuple(sorted(it["options"].values()))) for it in its}
+    assert not texts(exam[0]) & texts(exam[1]) and len(texts(exam[0])) == 60
+    practice = [it for p in db().collection("users").document(S["ana_uid"]).collection("plans").stream() for s in p.to_dict()["sessions"] for it in s["items"]]
+    assert not texts(practice) & (texts(exam[0]) | texts(exam[1]))
     answers = {it["id"]: keys[it["id"]] for it in sim["items"][:10]}
     res = api.post("/api/simulacros/general-1/submit", headers=H(S["ana"]), json={"answers": answers}).json()
     assert res["submitted"] and res["total"] == {"correct": 10, "total": 15} and res["byArea"]["LEC"]["pct"] == 100

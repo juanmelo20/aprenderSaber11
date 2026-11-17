@@ -117,7 +117,7 @@ with sync_playwright() as p:
     shot(page, "08-semana-2")
 
     # Simulacro general
-    page.get_by_role("link", name="Presentar").click()
+    page.get_by_role("link", name="Presentar").first.click()  # el simulacro corto
     expect(page.locator(".timer")).to_be_visible(timeout=15000)
     total = page.locator(".grid-nav button").count()
     for i in range(total - 2):  # deja dos sin responder

@@ -12,10 +12,10 @@ from __future__ import annotations
 import random
 import zlib
 
-from . import families_ing, families_mat, families_nat, math_families
+from . import families_ing, families_mat, families_nat, families_soc, math_families
 
 REGISTRY: dict[str, tuple[str, object]] = {}
-for _area, _module in (("MAT", math_families), ("MAT", families_mat), ("NAT", families_nat), ("ING", families_ing)):
+for _area, _module in (("MAT", math_families), ("MAT", families_mat), ("NAT", families_nat), ("SOC", families_soc), ("ING", families_ing)):
     for _fn in _module.FAMILIES:
         assert _fn.__name__ not in REGISTRY, _fn.__name__
         REGISTRY[_fn.__name__] = (_area, _fn)
@@ -83,9 +83,10 @@ def templates(per_family: int = 2, seed: int = 2026) -> list[dict]:
     return out
 
 
-def fresh(names, seen_ids, per_family: int, rng: random.Random) -> list[dict]:
-    """Variantes nuevas de las familias dadas, distintas de todo lo que el estudiante ya vio."""
-    used = {i.rsplit(".", 1)[1] for i in seen_ids if is_generated(i)}
+def fresh(names, seen_ids, per_family: int, rng: random.Random, exclude: frozenset[str] | set[str] = frozenset()) -> list[dict]:
+    """Variantes nuevas de las familias dadas, distintas de todo lo que el estudiante ya vio y de las firmas
+    excluidas (las variantes reservadas para los simulacros)."""
+    used = {i.rsplit(".", 1)[1] for i in seen_ids if is_generated(i)} | set(exclude)
     out = []
     for name in names:
         if name not in REGISTRY:
@@ -110,3 +111,21 @@ def capacity(name: str, samples: int = 400) -> int:
     """Cuántas variantes distintas se obtienen en 'samples' intentos (cota inferior del tamaño de la familia)."""
     rng = random.Random(f"cap:{name}")
     return len({signature(it) for it in (_build(name, rng) for _ in range(samples)) if it})
+
+
+def reserved(name: str, tag: str, count: int, taken: set[str]) -> list[dict]:
+    """Variantes fijas para un simulacro: siempre las mismas (reproducibles) y distintas de las ya tomadas.
+    Llevan su firma en 'sig' para que la práctica nunca las genere."""
+    out, i = [], 0
+    while len(out) < count and i < 400:
+        item = make(name, zlib.crc32(f"{tag}:{name}:{i}".encode()))
+        i += 1
+        if not item:
+            continue
+        sig = item["id"].rsplit(".", 1)[1]
+        if sig in taken:
+            continue
+        taken.add(sig)
+        item["sig"] = sig
+        out.append(item)
+    return out

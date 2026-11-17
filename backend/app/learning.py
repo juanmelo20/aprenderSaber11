@@ -271,9 +271,9 @@ def list_simulacros(uid: str) -> list[dict]:
     for snap in db().collection("simulacros").where(filter=FieldFilter("status", "==", "publicado")).stream():
         d = snap.to_dict()
         r = done.get(snap.id, {})
-        out.append({"id": snap.id, "title": d["title"], "minutes": d["minutes"], "questions": len(d["itemIds"]),
+        out.append({"id": snap.id, "title": d["title"], "minutes": d["minutes"], "questions": len(d["itemIds"]), "order": d.get("order", 99),
                     "submitted": bool(r.get("submittedAt")), "startedAt": r.get("startedAt"), "summary": r.get("byArea")})
-    return out
+    return sorted(out, key=lambda s: (s["order"], s["id"]))
 
 
 def _sim_def(sim_id: str) -> dict:

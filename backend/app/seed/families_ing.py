@@ -215,4 +215,47 @@ def conversation(rng):
         "hints": ["¿La primera persona pregunta, ofrece, agradece o se disculpa?", "Elige la respuesta que tendría sentido en una conversación real."], "packed": packed}
 
 
-FAMILIES = [present_simple, past_simple, comparative, time_preposition, much_many, there_is_are, question_word, vocabulary, notice, conversation]
+FRIENDS = ["Laura", "Andrés", "Camila", "Julián", "Sofía", "Mateo", "Valentina", "Daniel"]
+EVENTS = [("a football match", "the school field", "your sports shoes"), ("a birthday party", "my house", "a small gift"),
+          ("a science fair", "the school library", "your project poster"), ("a picnic", "the park near the river", "something to drink"),
+          ("a music concert", "the town square", "a jacket because it gets cold"), ("a study group for the exam", "the community centre", "your maths notebook"),
+          ("a tree-planting day", "the school garden", "gloves and a hat"), ("a dance class", "the cultural centre", "comfortable clothes")]
+DAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]
+TIMES = ["8 a.m.", "9:30 a.m.", "10 a.m.", "2 p.m.", "3:30 p.m.", "4 p.m.", "5 p.m.", "6:30 p.m."]
+
+
+def message(rng):
+    sender, friend = rng.sample(FRIENDS, 2)
+    event, place, bring = rng.choice(EVENTS)
+    day = rng.choice(DAYS)
+    k = rng.randrange(1, len(TIMES))
+    time, meet = TIMES[k], rng.choice(TIMES[:k])  # se encuentran antes del evento
+    text = (f"Hi {friend},\nThere is {event} on {day} at {time} at {place}. Can you come? Please bring {bring}. "
+            f"We can meet at my house at {meet} and go together.\nSee you,\n{sender}")
+    kind = rng.choice(["day", "place", "bring", "meet"])
+    if kind == "day":
+        stem, correct, wrong = "When is the event?", f"On {day} at {time}.", [f"On {d} at {time}." for d in rng.sample([x for x in DAYS if x != day], 2)] + [f"On {day} at {meet}."]
+        expl = f"El mensaje dice 'on {day} at {time}'. La hora {meet} es la de encontrarse en la casa, no la del evento."
+    elif kind == "place":
+        others = [p for _, p, _ in EVENTS if p != place]
+        stem, correct, wrong = "Where is the event?", place[0].upper() + place[1:] + ".", [p[0].upper() + p[1:] + "." for p in rng.sample(others, 2)] + [f"At {sender}'s house."]
+        expl = f"El evento es en '{place}'. La casa de {sender} es solo el punto de encuentro."
+    elif kind == "bring":
+        others = [b for _, _, b in EVENTS if b != bring]
+        stem, correct, wrong = f"What does {sender} ask {friend} to bring?", bring[0].upper() + bring[1:] + ".", [b[0].upper() + b[1:] + "." for b in rng.sample(others, 3)]
+        expl = f"'Please bring {bring}': eso es lo que pide llevar."
+    else:
+        stem, correct, wrong = f"Why does {sender} want to meet {friend} before the event?", "To go to the event together.", [
+            "To do homework together.", "To buy the tickets.", f"Because the event starts at {meet}."]
+        expl = f"'We can meet at my house at {meet} and go together': se encuentran para ir juntos. El evento empieza a las {time}."
+    dot = lambda t: t if t.endswith(".") else t + "."
+    correct, wrong = dot(correct.rstrip(".") if correct.endswith("m..") else correct), wrong
+    fix = lambda t: t[:-1] if t.endswith("..") else t
+    packed = _pack(rng, fix(correct), [fix(w) for w in wrong])
+    return packed and {
+        "competencia": "lectura", "b": {"day": -0.4, "place": -0.5, "bring": -0.6, "meet": 0.2}[kind],
+        "context": text, "stem": stem, "explanation": expl,
+        "hints": ["Busca en el mensaje la palabra clave de la pregunta (when, where, bring, why).", "Cuidado: el mensaje tiene dos horas y dos lugares distintos."], "packed": packed}
+
+
+FAMILIES = [message, present_simple, past_simple, comparative, time_preposition, much_many, there_is_are, question_word, vocabulary, notice, conversation]

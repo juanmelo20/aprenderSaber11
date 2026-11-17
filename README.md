@@ -1,6 +1,6 @@
 # Rumbo 11 (nombre provisional)
 
-Plataforma de preparación para la prueba Saber 11: diagnóstico adaptativo corto por área, plan de mejora semanal por estudiante, tutor que da pistas y no respuestas, simulacro general, y tableros para el docente de cada área y para el colegio.
+Plataforma de preparación para la prueba Saber 11: diagnóstico adaptativo corto por área, plan de mejora semanal por estudiante, tutor que da pistas y no respuestas, simulacros tipo examen, y tableros para el docente de cada área y para el colegio.
 
 Versión 0.1. Funciona completa en el computador con los emuladores de Firebase. Todavía no está publicada en internet: para eso faltan las cuentas reales (ver "Publicar").
 
@@ -66,22 +66,23 @@ cd backend && pytest                 # 32 pruebas: motores, banco, tutor y flujo
 
 **Preguntas que no se repiten.** El plan nunca usa una pregunta ya vista mientras quede alguna nueva. Hay dos fuentes:
 
-- *Familias* (48): plantillas de Matemáticas, Ciencias e Inglés que producen una pregunta distinta cada vez, con la clave calculada. Cada variante lleva una firma de su contenido, así que dos variantes con el mismo texto cuentan como la misma pregunta y no se vuelven a entregar. En conjunto dan más de 6.900 preguntas distintas.
-- *Preguntas escritas a mano* (203): textos y casos originales con sus preguntas. Aquí el banco es finito.
+- *Familias* (51): plantillas de Matemáticas, Ciencias, Sociales (mecanismos de participación y organismos del Estado) e Inglés que producen una pregunta distinta cada vez, con la clave calculada. Cada variante lleva una firma de su contenido, así que dos variantes con el mismo texto cuentan como la misma pregunta y no se vuelven a entregar. En conjunto dan más de 8.000 preguntas distintas.
+- *Preguntas escritas a mano* (311): textos y casos originales con sus preguntas. Aquí el banco es finito.
 
-Si la misma competencia fuera foco todas las semanas (el peor caso, 6 preguntas nuevas por semana), esto es lo que dura cada una sin repetir:
+En una simulación de 12 estudiantes durante 40 semanas, con el plan rotando entre sus competencias más débiles, la primera pregunta repetida apareció entre la semana 6 y la 15. Lo que se agota primero es lo que depende de textos. Si la misma competencia fuera foco todas las semanas (el peor caso, 6 preguntas nuevas por semana), esto dura cada una:
 
 | Competencia | Semanas sin repetir |
 |---|---|
 | Matemáticas: interpretación, formulación | más de 104 |
 | Matemáticas: argumentación | 80 |
-| Naturales: uso del conocimiento | 89 |
+| Sociales: pensamiento social | más de 104 |
+| Sociales: perspectivas, pensamiento sistémico | 3 a 4 |
+| Naturales: uso del conocimiento | 81 |
 | Naturales: indagación | más de 104 |
-| Naturales: explicación de fenómenos | 8 |
+| Naturales: explicación de fenómenos | 10 |
 | Inglés: vocabulario y gramática | más de 104 |
-| Inglés: lectura | 4 |
-| Lectura Crítica (cada competencia) | 2 a 3 |
-| Sociales (cada competencia) | 2 |
+| Inglés: lectura | 6 |
+| Lectura Crítica (cada competencia) | 3 a 5 |
 
 Lectura Crítica, Sociales y la lectura en Inglés dependen de textos: no se pueden generar con plantillas sin perder calidad. Su banco crece de dos maneras: escribiendo más en `backend/app/seed/` o con el botón "Redactar borradores con IA" del administrador, que pide al modelo un texto nuevo con cuatro preguntas y lo deja en la bandeja del docente.
 
@@ -89,7 +90,7 @@ Lectura Crítica, Sociales y la lectura en Inglés dependen de textos: no se pue
 
 **Sin conexión.** El plan de la semana queda guardado en el dispositivo. Las prácticas se pueden responder sin señal y se envían solas al volver la conexión. El diagnóstico, el tutor con IA y el simulacro sí necesitan conexión.
 
-**Simulacro general.** El mismo para todos, con tiempo, y con preguntas que no aparecen en las prácticas.
+**Simulacros.** Iguales para todos, con tiempo y sin ayudas. Hay tres: uno corto (15 preguntas, 30 minutos) y dos tipo examen (60 preguntas, 120 minutos) con la misma proporción por área que la prueba (Lectura 10, Matemáticas 12, Sociales 12, Naturales 13, Inglés 13). Ninguna de sus preguntas aparece en el diagnóstico, en la práctica ni en otro simulacro: las variantes de familias que usan quedan reservadas y la práctica nunca las genera.
 
 ## Publicar (todo en planes gratuitos)
 
@@ -125,8 +126,8 @@ Lectura Crítica, Sociales y la lectura en Inglés dependen de textos: no se pue
 
 ## Lo que falta antes de usarla con estudiantes reales
 
-- **Banco de lectura.** Es la tarea más grande que queda. Lectura Crítica tiene 54 preguntas de práctica y diagnóstico, y Sociales 50: alcanzan para pocas semanas sin repetir (ver la tabla). Para un semestre completo hacen falta varios cientos más por área, y todas deben pasar por un docente.
-- **Revisión docente.** Todo el banco está en borrador: 203 preguntas escritas a mano y 96 ejemplos de las 48 familias. Aprobar un ejemplo aprueba su familia.
+- **Banco de lectura.** Es la tarea más grande que queda. Lectura Crítica tiene 79 preguntas de práctica y diagnóstico, y los casos de Sociales 66: alcanzan para pocas semanas sin repetir (ver la tabla). Para un año completo hacen falta varios cientos más, y todas deben pasar por un docente.
+- **Revisión docente.** Todo el banco está en borrador: 311 preguntas escritas a mano, 102 ejemplos de las 51 familias y 70 variantes reservadas para los simulacros. Aprobar un ejemplo aprueba su familia. Los simulacros se muestran apenas se cargan, sin esperar la revisión.
 - **Calibración.** La dificultad de cada pregunta es una estimación de quien la escribió. Los cortes de nivel usan los rangos de puntaje del ICFES, pero la escala de la app no está equiparada con la del examen: los niveles son orientativos hasta calibrar con respuestas reales (la colección `itemStats` ya las va acumulando).
 - **Texto de autorización.** Debe revisarlo un abogado (Ley 1581 de 2012 y Decreto 1377 de 2013) antes de enviarlo a las familias.
 - **Pagos.** No hay pasarela: el administrador activa cada licencia a mano después de recibir el pago.
